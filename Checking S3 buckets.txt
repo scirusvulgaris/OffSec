@@ -1,0 +1,106 @@
+Amazon S3 storage, while containing static data, can be a great opportunity for pentesting. Incorrectly set permissions allow hackers to scavenge S3 for sensitive data that will pave the way for further advancement.
+
+
+Buckets have the ability to control access: objects can be public or private. Private access can be both read-only and writable. 
+
+Inside S3, there are two types of data: Bucket - a container for objects and Object - the file itself. The most frequent ways of interaction:
+
+    List - list all S3 storages or files on S3;
+    Get - get a file;
+    Put - put the file on S3;
+    Delete - delete a file.
+
+The URL format for accessing S3 looks like this: 
+http(s)://{Website}.s3.{server}.amazonaws.com
+
+Example: https://wahwah.s3.us-west-2.amazonaws.com
+
+S3 buckets can be discovered in many ways, such as finding the URL in the source code of a website page, in GitHub repositories, or even automating the process using ready-made utilities. 
+For enumeration, you can use the name of the company, followed by general terms. For example, lol-assets, lol-www, lol-public, lol-private and so on. 
+
+A security policy can also be attached to a bucket or object. 
+With policies, you can specify who has access to a resource and what actions can perform on it. There are four options:
+
+    public access (Public Access);
+    ACL is short for Access Control List. It can be configured both for a bucket and for a specific bucket object;
+    Bucket Policies - configured only for the bucket;
+    Time Limited URLs - temporary URLs for access.
+
+There are also identity-based policies that are attached to a user, group, or IAM role. Allows you to define what an object can do.
+
+
+BUCKET SEARCH!
+
+It's worth starting with the greyhatwarfare.com service. It allows you to find buckets and objects in them using keywords. 
+
+If nothing is really found, then we go to the company's website. Burp Suite will help us here. Just browse the website and then analyze the resulting map. 
+
+In that case yopu already saw buckets are always located in the URL like shown in the previous format and example!
+
+Another example though 
+
+http://s3.[region].amazonaws.com/[bucket_name]/
+http://[bucket_name].s3.[region].amazonaws.com/
+
+http://s3-website-[region].amazonaws.com/[bucket_name]
+http://[bucket_name].s3-website-[region].amazonaws.com
+
+http://[bucketname].s3.dualstack.[region].amazonaws.com
+http://s3.dualstack.[region].amazonaws.com/[bucketname]
+
+Do we need to select the correct region? Not! Amazon will kindly tell you that we are looking somewhere in the wrong place. Therefore, we only need the name of the bucket.
+
+All S3 buckets configured for web hosting receive an AWS domain that you can use without your own DNS. That is, the bucket name in this case matches the domain name, namely flaws.cloud.
+
+Of course, it is problematic to sort through each domain manually. A simple Bash script will speed things up:
+
+while read p; do
+echo $p, curl --silent -I -i http://$p | grep AmazonS3
+done < subdomains.txt
+
+
+Finding the name of a bucket with select targets, you can use the tools mentioned below.
+https://github.com/clario-tech/s3-inspector
+https://github.com/sa7mon/S3Scanner
+https://github.com/jordanpotti/AWSBucketDump (Also a dumper)
+https://github.com/RhinoSecurityLabs/Security-Research/tree/master/tools/aws-pentest-tools/s3
+
+
+DUMPING THE CONTENT
+
+AWS CLI does a great job with this: 
+aws configure
+
+Next, enter the details of any valid AWS account. will be needed if you want to automate the dumping process through AWS CLI
+There is a flag --no-sign-request, which allows you to get anonymous access, but I still recommend entering at least some credentials. 
+Sometimes it happens that nothing can be found from an anonymous person, but intelligence on behalf of a user reveals interesting information. I emphasize: you need to enter the details of any AWS account. Absolutely anyone.
+
+I suggest starting by getting the full list of objects in the bucket: 
+aws aws s3 ls s3://<target> --recursive
+or
+aws s3api list-objects-v2 --bucket <target>
+
+If there are a lot of objects, then you can delve into them using standard regular expressions. For example:
+grep '"Key"' object.txt | sed 's/[",]//g' > list_keys.txt
+
+Once you have a list of possible objects, you can download them like this: 
+aws s3api get-object --bucket <bucket-name> --key <file name> <download-file-location>
+
+For example: aws s3api get-object --bucket flaws.cloud --key aws.txt C:\Users\User\Desktop\downloaded.txt
+
+You can also download the entire bucket: 
+aws s3 sync s3://<bucket>/ .
+
+A lot of buckets contain repositories on GitHub. If there is one, be sure to try to get interesting information using Gitleaks or TruffleHog . 
+
+
+Lets not forget a lot of info in the buckets could lead to getting further information and access, like login information, config information on the company and more
+so look into those buckets and find the juicy leaks.
+
+Happy hacking,
+GhostSec
+
+
+
+
+
